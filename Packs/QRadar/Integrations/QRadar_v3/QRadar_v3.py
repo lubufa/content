@@ -968,6 +968,60 @@ class Client(BaseClient):
 """ HELPER FUNCTIONS """
 
 
+def get_integration_context_with_version_custom(sync=True):
+    """
+    Get the latest integration context with version, if available.
+
+    :type sync: ``bool``
+    :param sync: Whether to get the context directly from the DB.
+
+    :rtype: ``tuple``
+    :return: The latest integration context with version.
+    """
+    version = -1
+    print_debug_msg("Starting to get integration context")
+    latest_integration_context_versioned = get_integration_context(sync, with_version=True)
+    print_debug_msg(f"Got integration context of type {type(latest_integration_context_versioned)}.")
+    if isinstance(latest_integration_context_versioned, list):
+        integration_context_item_count = len(latest_integration_context_versioned)
+        print_debug_msg(f"Context data is of type list with {integration_context_item_count} items.")
+        if integration_context_item_count == 0:
+            print_debug_msg("Returning empty dict instead of context list.")
+            return {}, version
+        first_item = latest_integration_context_versioned[0]
+        last_item = latest_integration_context_versioned[-1]
+        print_debug_msg(f"Context data list first item is of type {type(first_item)} and last item is of type {type(last_item)}.")
+        first_item_id = None
+        last_item_id = None
+        if isinstance(first_item, dict) and LAST_FETCH_KEY in first_item and isinstance(first_item[LAST_FETCH_KEY], int):
+            print_debug_msg(f"First context list item is dict with ID: {first_item[LAST_FETCH_KEY]}")
+            first_item_id = first_item[LAST_FETCH_KEY]
+        if isinstance(last_item, dict) and LAST_FETCH_KEY in last_item and isinstance(last_item[LAST_FETCH_KEY], int):
+            print_debug_msg(f"Last context list item is dict with ID: {last_item[LAST_FETCH_KEY]}")
+            last_item_id = last_item[LAST_FETCH_KEY]
+
+        if first_item_id is not None and first_item_id > (last_item_id or 0):
+            print_debug_msg("Returning first context list item.")
+            return first_item, version
+
+        if last_item_id is not None and last_item_id > (first_item_id or 0):
+            print_debug_msg("Returning last context list item.")
+            return last_item, version
+
+        print_debug_msg(f"Falling back on first item in context list item of type {type(first_item)}.")
+        return first_item, version
+
+    if is_versioned_context_available():
+        integration_context = latest_integration_context_versioned.get("context", {})
+        if sync:
+            version = latest_integration_context_versioned.get("version", 0)
+    else:
+        integration_context = latest_integration_context_versioned
+
+    print_debug_msg(f"Got integration context of type {type(integration_context)} and {version=}.")
+    return integration_context, version
+
+
 def get_major_version(version: str) -> int:
     try:
         if "." not in version:
@@ -1178,62 +1232,6 @@ def update_user_query(user_query: str) -> str:
     return f" AND ({user_query})" if user_query else ""
 
 
-def insert_to_updated_context(
-    context_data: dict,
-    offense_ids: list | None = None,
-    should_update_last_fetch: bool = False,
-    should_update_last_mirror: bool = False,
-    should_add_reset_key: bool = False,
-    should_force_update: bool = False,
-):
-    """When we have a race condition, insert the changed data from context_data to the updated context data
-
-    Args:
-        context_data (dict): Context data with relevant changes.
-        updated_context_data (dict): Context data that was updated before.
-        offense_ids (list, optional): Offense ids that were changed. Defaults to None.
-        should_update_last_fetch (bool, optional): Should update the last_fetch. Defaults to False.
-        should_update_last_mirror (bool, optional): Should update the last mirror. Defaults to False.
-        should_add_reset_key (bool, optional): If we should add reset key. Defaults to False
-        should_force_update (bool, optional): If we should force update the current context. Defaults to False
-
-    """
-    if offense_ids is None:
-        offense_ids = []
-    updated_context_data, version = get_integration_context_with_version()
-    new_context_data = updated_context_data.copy()
-    if should_force_update:
-        return context_data, version
-
-    if should_add_reset_key:
-        new_context_data[RESET_KEY] = True
-    for id_ in offense_ids:
-        # Those are "trusted ids" from the changed context_data, we will keep the data (either update or delete it)
-        for key in (MIRRORED_OFFENSES_QUERIED_CTX_KEY, MIRRORED_OFFENSES_FINISHED_CTX_KEY, MIRRORED_OFFENSES_FETCHED_CTX_KEY):
-            if id_ in context_data[key]:
-                new_context_data[key][id_] = context_data[key][id_]
-            else:
-                new_context_data[key].pop(id_, None)
-
-    if should_update_last_fetch:
-        # Last fetch is updated with the samples that were fetched
-        new_context_data.update(
-            {
-                LAST_FETCH_KEY: int(context_data.get(LAST_FETCH_KEY, 0)),
-                SAMPLE_INCIDENTS_KEY: context_data.get(SAMPLE_INCIDENTS_KEY, [])[:SAMPLE_SIZE],
-            }
-        )
-
-    if should_update_last_mirror:
-        new_context_data.update(
-            {
-                LAST_MIRROR_KEY: int(context_data.get(LAST_MIRROR_KEY, 0)),
-                LAST_MIRROR_CLOSED_KEY: int(context_data.get(LAST_MIRROR_CLOSED_KEY, 0)),
-            }
-        )
-    return new_context_data, version
-
-
 def merge_samples(current_ctx: dict, changes: dict) -> None:
     """Merges samples from `changes` into `current_ctx`.
 
@@ -1296,6 +1294,7 @@ def safely_update_context_data_partial(
     changes: dict,
     attempts: int = 5,
     override_keys: Optional[list[str]] = None,
+    raise_error: bool = False,
 ) -> None:
     """
     Reads the current integration context+version,
@@ -1304,17 +1303,23 @@ def safely_update_context_data_partial(
     """
     override_keys = override_keys or []
     for _ in range(attempts):
-        ctx, version = get_integration_context_with_version()
-        merged = copy.deepcopy(ctx)
-        deep_merge_context_changes(merged, changes, override_keys=override_keys)
         try:
+            demisto.debug("Getting integration context for update.")        
+            ctx, version = get_integration_context_with_version_custom()
+            demisto.debug(f"Got integration context {version=}.")
+            merged = copy.deepcopy(ctx)
+            deep_merge_context_changes(merged, changes, override_keys=override_keys)
             demisto.debug(f"Merging partial data to context {merged}")
             set_integration_context(merged, version=version)
             return  # success
         except Exception as e:
             demisto.debug(f"Version conflict or error setting context: {e}. Retrying...")
 
-    raise DemistoException(f"Failed updating context after {attempts} attempts.")
+    error_msg = f"Failed updating context after {attempts} attempts."
+    if raise_error:
+        raise DemistoException(error_msg)
+    else:
+        demisto.debug(error_msg)
 
 
 def add_iso_entries_to_dict(dicts: List[dict]) -> List[dict]:
@@ -2143,7 +2148,7 @@ def is_reset_triggered(ctx: dict | None = None, version: Any = None) -> bool:
     Returns True if a reset was triggered and handled, False otherwise.
     """
     if not ctx or not version:
-        ctx, version = get_integration_context_with_version()
+        ctx, version = get_integration_context_with_version_custom()
 
     if ctx and RESET_KEY in ctx:
         print_debug_msg("Reset fetch-incidents.")
@@ -2559,7 +2564,7 @@ def delete_offense_from_context(offense_id: str):
     Removes offense_id from MIRRORED_OFFENSES_QUERIED_CTX_KEY and MIRRORED_OFFENSES_FINISHED_CTX_KEY
     in a concurrency-safe manner, without overwriting unrelated data.
     """
-    ctx, _ = get_integration_context_with_version()
+    ctx, _ = get_integration_context_with_version_custom()
 
     offenses_queried = ctx.get(MIRRORED_OFFENSES_QUERIED_CTX_KEY, {})
     offenses_finished = ctx.get(MIRRORED_OFFENSES_FINISHED_CTX_KEY, {})
@@ -2679,8 +2684,6 @@ def get_incidents_long_running_execution(
             prepare_context_for_events(offenses_with_metadata)
     else:
         offenses = raw_offenses
-    if is_reset_triggered():
-        return None, None
     offenses_with_mirror = (
         [dict(offense, mirror_direction=mirror_direction, mirror_instance=demisto.integrationInstance()) for offense in offenses]
         if mirror_direction
@@ -2698,7 +2701,7 @@ def prepare_context_for_events(offenses_with_metadata):
     For any offense that wasn't successfully enriched, mark it in MIRRORED_OFFENSES_QUERIED_CTX_KEY as WAIT.
     Uses partial merge so as not to overwrite other keys.
     """
-    ctx, _ = get_integration_context_with_version()
+    ctx, _ = get_integration_context_with_version_custom()
 
     mirrored_offenses_queried = ctx.get(MIRRORED_OFFENSES_QUERIED_CTX_KEY, {})
 
@@ -2794,13 +2797,15 @@ def perform_long_running_loop(
     mirror_options: str,
     assets_limit: int,
     long_running_container_id: str,
-):
-    context_data, version = get_integration_context_with_version()
+    last_highest_id: Optional[int] = None,
+) -> int:
+    if last_highest_id is None:
+        context_data, version = get_integration_context_with_version()
 
-    if is_reset_triggered(context_data, version):
-        last_highest_id = 0
-    else:
-        last_highest_id = int(context_data.get(LAST_FETCH_KEY, 0))
+        if is_reset_triggered(context_data, version):
+            last_highest_id = 0
+        else:
+            last_highest_id = int(context_data.get(LAST_FETCH_KEY, 0))
     print_debug_msg(f"Starting fetch loop. Fetch mode: {fetch_mode} on Container:{long_running_container_id}.")
     incidents, new_highest_id = get_incidents_long_running_execution(
         client=client,
@@ -2821,15 +2826,10 @@ def perform_long_running_loop(
 
     print_debug_msg(f"Got incidents, Creating incidents and updating context data. new highest id is {new_highest_id}")
 
-    # Refresh context to see if something changed in parallel
-    context_data, ctx_version = get_integration_context_with_version()
-
     if incidents and new_highest_id:
         # Filter incidents that are small enough to store as samples
         filtered_incidents = [incident for incident in incidents if is_incident_size_acceptable(incident)]
-        incident_batch_for_sample = (
-            filtered_incidents[:SAMPLE_SIZE] if filtered_incidents else context_data.get(SAMPLE_INCIDENTS_KEY, [])[:SAMPLE_SIZE]
-        )
+        incident_batch_for_sample = filtered_incidents[:SAMPLE_SIZE]
 
         if len(filtered_incidents) < len(incidents):
             skipped_count = len(incidents) - len(filtered_incidents)
@@ -2843,12 +2843,16 @@ def perform_long_running_loop(
         partial_changes[LAST_FETCH_KEY] = int(new_highest_id)
 
         # Merge changes so we don't overwrite other subkeys
-        safely_update_context_data_partial(partial_changes)
+        safely_update_context_data_partial(partial_changes, raise_error=False)
 
         print_debug_msg(
             f'Successfully Created {len(incidents)} incidents. '
             f'Incidents created: {[incident["name"] for incident in incidents]}'
         )
+        return new_highest_id
+
+    print_debug_msg(f"No incidents to create. Last highest ID is {last_highest_id}")
+    return last_highest_id
 
 
 def recover_from_last_run(ctx: dict | None = None, version: Any = None):
@@ -2858,7 +2862,7 @@ def recover_from_last_run(ctx: dict | None = None, version: Any = None):
     after demisto.createIncidents but before the context is updated.
     """
     if not ctx or not version:
-        ctx, version = get_integration_context_with_version()
+        ctx, version = get_integration_context_with_version_custom()
 
     assert isinstance(ctx, dict)
 
@@ -2913,14 +2917,20 @@ def long_running_execution_command(client: Client, params: dict):
     assets_limit = int(params.get("limit_assets", DEFAULT_ASSETS_LIMIT))
     if not argToBoolean(params.get("retry_events_fetch", True)):
         EVENTS_SEARCH_TRIES = 1
-    context_data, version = get_integration_context_with_version()
-    is_reset_triggered(context_data, version)
+    context_data, version = get_integration_context_with_version_custom()
+    is_rest = is_reset_triggered(context_data, version)
     recover_from_last_run(context_data, version)
     long_running_container_id = str(uuid.uuid4())
     print_debug_msg(f"Starting container with UUID: {long_running_container_id}")
+
+    if is_rest:
+        last_highest_id = 0
+    else:
+        last_highest_id = int(context_data.get(LAST_FETCH_KEY, 0))
+
     while True:
         try:
-            perform_long_running_loop(
+            new_highest_id = perform_long_running_loop(
                 client=client,
                 offenses_per_fetch=offenses_per_fetch,
                 fetch_mode=fetch_mode,
@@ -2935,7 +2945,10 @@ def long_running_execution_command(client: Client, params: dict):
                 mirror_options=mirror_options,
                 assets_limit=assets_limit,
                 long_running_container_id=long_running_container_id,
+                last_highest_id=last_highest_id,
             )
+            print_debug_msg(f"Updating last highest ID with new highest ID: {new_highest_id}.")
+            last_highest_id = new_highest_id
             demisto.updateModuleHealth("")
 
         except Exception as e:
@@ -4253,7 +4266,7 @@ def get_remote_data_command(client: Client, params: dict[str, Any], args: dict) 
     offense = client.offenses_list(offense_id=int(offense_id))
     offense_last_update = get_time_parameter(offense.get("last_persisted_time"))
     mirror_options = params.get("mirror_options")
-    context_data, context_version = get_integration_context_with_version()
+    context_data, context_version = get_integration_context_with_version_custom()
     events_columns = params.get("events_columns") or DEFAULT_EVENTS_COLUMNS
     events_limit = int(params.get("events_limit") or DEFAULT_EVENTS_LIMIT)
     fetch_mode = params.get("fetch_mode", "")
@@ -4499,7 +4512,7 @@ def get_modified_remote_data_command(
     Returns:
         (GetModifiedRemoteDataResponse): IDs of the offenses that have been modified in QRadar.
     """
-    ctx, ctx_version = get_integration_context_with_version()
+    ctx, ctx_version = get_integration_context_with_version_custom()
     remote_args = GetModifiedRemoteDataArgs(args)
 
     highest_fetched_id = ctx.get(LAST_FETCH_KEY, 0)
@@ -5397,7 +5410,7 @@ def qradar_print_context_command() -> CommandResults:
     Returns:
         CommandResults: Command results with human-readable output and context output.
     """
-    ctx, _ = get_integration_context_with_version()
+    ctx, _ = get_integration_context_with_version_custom()
     queried = ctx.get(MIRRORED_OFFENSES_QUERIED_CTX_KEY, {}) or {}
     finished = ctx.get(MIRRORED_OFFENSES_FINISHED_CTX_KEY, {}) or {}
     fetched = ctx.get(MIRRORED_OFFENSES_FETCHED_CTX_KEY, {}) or {}
@@ -5423,7 +5436,7 @@ def validate_integration_context() -> None:
     The new context structure consists of two dictionaries of queried offenses
     and finished offenses. Some older instances might not have them, so we fix that.
     """
-    context_data, _ = get_integration_context_with_version()
+    context_data, _ = get_integration_context_with_version_custom()
     new_ctx = context_data.copy()
     try:
         print_context_data_stats(context_data, "Checking ctx")
