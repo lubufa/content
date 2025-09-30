@@ -2919,10 +2919,8 @@ tasks:
     scriptarguments:
       comment:
         simple: demo comment
-      id:
-        complex:
-          root: CrowdStrike.MLExclusion
-          accessor: id
+      value:
+        simple: test
     separatecontext: false
     continueonerrortype: ""
     view: |-
