@@ -1,6 +1,7 @@
 # pylint: disable=no-name-in-module
 # pylint: disable=no-self-argument
 import urllib3
+
 from SiemApiModule import *  # noqa: E402
 
 urllib3.disable_warnings()
@@ -133,7 +134,7 @@ class CyberArkIdentityEventsClient(IntegrationEventsClient):
         request = IntegrationHTTPRequest(
             method=Method.POST,
             url=f"{str(self.request.url).removesuffix('/RedRock/Query')}/oauth2/platformtoken",  # type: ignore[arg-type]
-            headers={"Authorization": f"Basic {credentials}"},
+            headers={"Authorization": f"Basic {credentials}", "Content-Type": "application/json"},
             data={"grant_type": "client_credentials", "scope": "siem"},
             verify=self.request.verify,
         )
