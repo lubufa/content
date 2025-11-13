@@ -1,0 +1,31 @@
+
+//TODO make it accurate
+{
+  "logs": [
+    {
+      "datetime": "2025-09-27T14:30:00Z",
+      "query": "example.com",
+      "queryType": "A",
+      "clientIp": "192.168.1.100",
+      "responseCode": "NOERROR",
+      "answer": "93.184.216.34"
+    },
+    {
+      "datetime": "2025-09-27T14:31:15Z",
+      "query": "test.example.org",
+      "queryType": "AAAA",
+      "clientIp": "192.168.1.101",
+      "responseCode": "NOERROR",
+      "answer": "2606:2800:220:1:248:1893:25c8:1946"
+    },
+    {
+      "datetime": "2025-09-27T14:32:30Z",
+      "query": "malicious.domain.com",
+      "queryType": "A",
+      "clientIp": "10.0.0.50",
+      "responseCode": "NXDOMAIN",
+      "answer": ""
+    }
+  ],
+  "nextPageToken": "token_abc123"
+}

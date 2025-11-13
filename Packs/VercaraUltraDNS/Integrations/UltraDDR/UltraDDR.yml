@@ -1,0 +1,80 @@
+category: Analytics & SIEM
+sectionorder:
+- Connect
+- Collect
+commonfields:
+  id: UltraDDR
+  version: -1
+configuration:
+- display: Server URL
+  defaultvalue: https://api.ddr.ultradns.com
+  name: url
+  required: true
+  type: 0
+  section: Connect
+- displaypassword: API Key
+  name: credentials
+  required: true
+  type: 9
+  section: Connect
+  hiddenusername: true
+- display: Fetch events
+  defaultvalue: 'false'
+  name: isFetchEvents
+  required: true
+  type: 8
+  section: Collect
+- name: max_events_per_fetch
+  defaultvalue: '10000'
+  display: The maximum number of DNS logs per fetch #TODO what is the max?
+  required: false
+  type: 0
+  section: Collect
+  advanced: true
+- display: Trust any certificate (not secure)
+  name: insecure
+  required: false
+  type: 8
+  section: Connect
+- display: Use system proxy settings
+  name: proxy
+  required: false
+  type: 8
+  section: Connect
+description: Vercara UltraDDR integration for Cortex XSIAM. Collect DNS log events from UltraDDR for security monitoring, threat detection, and DNS analytics. #TODO make a clear difference between this in its brother
+display: Vercara UltraDDR
+name: UltraDDR
+script:
+  commands:
+  - arguments:
+    - name: should_push_events
+      auto: PREDEFINED
+      defaultValue: 'false'
+      description: If true, the command creates events; otherwise, it only displays them.
+      predefined:
+      - 'true'
+      - 'false'
+      required: true
+    - name: limit
+      description: Maximum number of results to return. Maximum is 10,000. #TODO change the limit
+      required: false
+      defaultValue: '50'
+    - name: start_time
+      description: Start time for fetching events. Supports ISO format ("2023-01-01T00:00:00") or natural language ("7 days ago", "yesterday", "1 week ago"). #TODO check if this works
+      required: true
+    - name: end_time
+      description: End time for fetching events. Supports ISO format ("2023-01-01T23:59:59") or natural language ("2 hours ago", "now"). If not provided, defaults to now.
+    description: Gets DNS log events from Vercara UltraDDR. Manual command to fetch and display events. This command is used for developing/debugging and is to be used with caution, as it can create events, leading to events duplication and exceeding the API request limitation.
+    name: ultraddr-get-events
+  dockerimage: demisto/python3:3.12.11.4819260
+  isfetchevents: true
+  runonce: false
+  script: '-'
+  subtype: python3
+  type: python
+marketplaces:
+- marketplacev2
+- platform
+fromversion: 8.4.0
+tests:
+- No tests (auto formatted)
