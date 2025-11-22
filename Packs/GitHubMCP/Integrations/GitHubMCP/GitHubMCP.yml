@@ -11,7 +11,7 @@ configuration:
     section: Connect
     required: true
   - display: Enabled Toolsets
-    name: toolsets
+    name: enabled_toolsets
     type: 16
     section: Connect
     options:

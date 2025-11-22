@@ -153,7 +153,8 @@ async def list_tools(client: Client):
     """
     tools = await client.list_tools()
 
-    tool_names = [tool.name for tool in tools.tools]
+    tools = tools.tools
+    tool_names = [tool.name for tool in tools]
     readable_output = f"Available {len(tool_names)} tools:\n{tool_names}"
 
     return CommandResults(
@@ -189,9 +190,9 @@ async def call_tool(client: Client, tool_name: str, args: dict[str, Any]) -> Com
         readable_output = f"Tool execution '{tool_name}' failed: {result_content}."
     else:
         try:
-            readable_output = tableToMarkdown("Tool Execution Details", json.loads(result_content))
+            readable_output = tableToMarkdown(f"Tool Execution '{tool_name}'", json.loads(result_content))
         except json.JSONDecodeError:
-            readable_output = f"Tool Execution Details: {result_content}"
+            readable_output = f"Tool Execution '{tool_name}': {result_content}"
 
     return CommandResults(
         readable_output=readable_output,
@@ -210,7 +211,7 @@ async def main() -> None:  # pragma: no cover
     command = demisto.command()
 
     token = params.get("token", {}).get("password")
-    toolsets = argToList(params.get("toolsets"))
+    toolsets = argToList(params.get("enabled_toolsets"))
     readonly = argToBoolean(params.get("readonly"))
 
     demisto.debug(f"Command being called is {command}")
@@ -235,7 +236,7 @@ async def main() -> None:  # pragma: no cover
         else:
             raise NotImplementedError(f"Command {command} is not implemented")
 
-    except* BaseException as eg:
+    except BaseException as eg:
         root_msg = extract_root_error_message(eg)
         return_error(f"Failed to execute {command} command.\nError:\n{root_msg}")
 
