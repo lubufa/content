@@ -103,7 +103,11 @@ class Client:
         """
         self.base_url = base_url
         self.token = token
-        self.headers = {"Authorization": f"Bearer {token}", "X-MCP-Toolsets": ",".join(toolsets), "X-MCP-Readonly": str(readonly)}
+        self.headers = {
+            "Authorization": f"Bearer {token}",
+            "X-MCP-Toolsets": ",".join(toolsets),
+            "X-MCP-Readonly": str(readonly).lower(),
+        }
 
     @asynccontextmanager
     async def _get_session(self):
@@ -164,7 +168,7 @@ async def list_tools(client: Client):
     )
 
 
-async def call_tool(client: Client, tool_name: str, args: dict[str, Any]) -> CommandResults:
+async def call_tool(client: Client, tool_name: str, arguments: str) -> CommandResults:
     """
     Calls a specific tool with given arguments and returns results.
 
@@ -176,7 +180,6 @@ async def call_tool(client: Client, tool_name: str, args: dict[str, Any]) -> Com
     Returns:
         CommandResults: Formatted command results from tool execution
     """
-    arguments = args.get("arguments") or "{}"
     try:
         arguments = json.loads(arguments)
     except json.JSONDecodeError:
@@ -231,7 +234,7 @@ async def main() -> None:  # pragma: no cover
             result = await list_tools(client)
             return_results(result)
         elif command == "call-tool":
-            result = await call_tool(client, args["name"], args)
+            result = await call_tool(client, args["name"], args.get("arguments") or "{}")
             return_results(result)
         else:
             raise NotImplementedError(f"Command {command} is not implemented")

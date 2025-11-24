@@ -3,6 +3,7 @@
     "description": "Integrate Cortex XSOAR with GitHub via the Management Control Plane (MCP) server to automate GitHub operations.",
     "support": "xsoar",
     "currentVersion": "1.0.0",
+    "serverMinVersion": "8.13.0",
     "author": "Cortex XSOAR",
     "url": "https://www.paloaltonetworks.com/cortex",
     "email": "",
@@ -16,12 +17,8 @@
         "platform"
     ],
     "supportedModules": [
-        "C1",
-        "X1",
-        "X3",
-        "X5",
-        "ENT_PLUS",
         "agentix",
+        "cloud_posture",
         "xsiam"
     ]
 }

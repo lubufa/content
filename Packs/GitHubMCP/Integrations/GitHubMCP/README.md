@@ -1,5 +1,4 @@
 Use this integration to connect securely with a GitHub Model Context Protocol (MCP) server and access its tools in real time.
-This integration was integrated and tested with version xx of GitHubMCP.
 
 ## Configure GitHub MCP in Cortex
 
@@ -32,11 +31,20 @@ Retrieves a list of available tools in the GitHub MCP server.
 
 | **Path** | **Type** | **Description** |
 | --- | --- | --- |
-| ListTools.Tools.name | String | The name of the available tool in the MCP server. |
-| ListTools.Tools.description | String | Description of the available tool in the MCP server |
-| ListTools.Tools.inputSchema.type | String | Input schema type for the tool in the MCP server |
-| ListTools.Tools.inputSchema.properties | String | Detailed properties of the tool's input schema |
-| ListTools.Tools.inputSchema.required | String | Required input fields for the tool |
+| ListTools.Tools.annotations | Unknown | The annotations of the tool. |
+| ListTools.Tools.description | String | The description of the tool. |
+| ListTools.Tools.icons | Unknown | The icons associated with the tool. |
+| ListTools.Tools.inputSchema.properties | String | The properties of the input schema for each tool. |
+| ListTools.Tools.inputSchema.required | String | The required input parameters. |
+| ListTools.Tools.inputSchema.title | String | The title of the input schema. |
+| ListTools.Tools.inputSchema.type | String | The type of the input schema. |
+| ListTools.Tools.meta | Unknown | Metadata about the tool. |
+| ListTools.Tools.name | String | The name of the tool. |
+| ListTools.Tools.outputSchema.properties.result | Unknown | The result of the tool execution. |
+| ListTools.Tools.outputSchema.required | String | The required fields in the output schema. |
+| ListTools.Tools.outputSchema.title | String | The title of the output schema. |
+| ListTools.Tools.outputSchema.type | String | The type of the output schema. |
+| ListTools.Tools.title | Unknown | The title of the tool. |
 
 ### call-tool
 
@@ -56,4 +64,12 @@ Calls a specific tool on the GitHub MCP server with optional input parameters.
 
 #### Context Output
 
-There is no context output for this command.
+| **Path** | **Type** | **Description** |
+| --- | --- | --- |
+| CallTool.Tool.content.annotations | Unknown | The annotations of the tool content. |
+| CallTool.Tool.content.meta | Unknown | Metadata about the tool content. |
+| CallTool.Tool.content.text | String | The text content returned by the tool. |
+| CallTool.Tool.content.type | String | The type of content returned by the tool. |
+| CallTool.Tool.isError | Boolean | Indicates if the tool call resulted in an error. |
+| CallTool.Tool.meta | Unknown | Metadata about the tool call. |
+| CallTool.Tool.structuredContent | Unknown | The structured content returned by the tool. |

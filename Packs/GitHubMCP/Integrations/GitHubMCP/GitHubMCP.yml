@@ -1,4 +1,6 @@
 category: Utilities
+sectionorder:
+- Connect
 commonfields:
   id: GitHubMCP
   version: -1
@@ -53,21 +55,48 @@ script:
     description: Retrieves a list of available tools in the GitHub MCP server.
     name: list-tools
     outputs:
-    - contextPath: ListTools.Tools.name
-      description: The name of the available tool in the MCP server.
-      type: String
+    - contextPath: ListTools.Tools.annotations
+      description: The annotations of the tool.
+      type: Unknown
     - contextPath: ListTools.Tools.description
-      description: Description of the available tool in the MCP server
+      description: The description of the tool.
       type: String
-    - contextPath: ListTools.Tools.inputSchema.type
-      description: Input schema type for the tool in the MCP server
-      type: String
+    - contextPath: ListTools.Tools.icons
+      description: The icons associated with the tool.
+      type: Unknown
     - contextPath: ListTools.Tools.inputSchema.properties
-      description: Detailed properties of the tool's input schema
+      description: The properties of the input schema for each tool.
       type: String
     - contextPath: ListTools.Tools.inputSchema.required
-      description: Required input fields for the tool
+      description: The required input parameters.
       type: String
+    - contextPath: ListTools.Tools.inputSchema.title
+      description: The title of the input schema.
+      type: String
+    - contextPath: ListTools.Tools.inputSchema.type
+      description: The type of the input schema.
+      type: String
+    - contextPath: ListTools.Tools.meta
+      description: Metadata about the tool.
+      type: Unknown
+    - contextPath: ListTools.Tools.name
+      description: The name of the tool.
+      type: String
+    - contextPath: ListTools.Tools.outputSchema.properties.result
+      description: The result of the tool execution.
+      type: Unknown
+    - contextPath: ListTools.Tools.outputSchema.required
+      description: The required fields in the output schema.
+      type: String
+    - contextPath: ListTools.Tools.outputSchema.title
+      description: The title of the output schema.
+      type: String
+    - contextPath: ListTools.Tools.outputSchema.type
+      description: The type of the output schema.
+      type: String
+    - contextPath: ListTools.Tools.title
+      description: The title of the tool.
+      type: Unknown
   - arguments:
     - name: name
       description: The name of the tool to call.
@@ -76,26 +105,33 @@ script:
       description: Parameters for the tool execution.
     description: Calls a specific tool on the GitHub MCP server with optional input parameters.
     name: call-tool
-    outputs: []
+    outputs:
+    - contextPath: CallTool.Tool.content.annotations
+      description: The annotations of the tool content.
+      type: Unknown
+    - contextPath: CallTool.Tool.content.meta
+      description: Metadata about the tool content.
+      type: Unknown
+    - contextPath: CallTool.Tool.content.text
+      description: The text content returned by the tool.
+      type: String
+    - contextPath: CallTool.Tool.content.type
+      description: The type of content returned by the tool.
+      type: String
+    - contextPath: CallTool.Tool.isError
+      description: Indicates if the tool call resulted in an error.
+      type: Boolean
+    - contextPath: CallTool.Tool.meta
+      description: Metadata about the tool call.
+      type: Unknown
+    - contextPath: CallTool.Tool.structuredContent
+      description: The structured content returned by the tool.
+      type: Unknown
   script: '-'
   type: python
   subtype: python3
-  dockerimage: devdemisto/mcp:1.0.0.5967811
+  dockerimage: demisto/mcp:1.0.0.5982836
   ismcp: true
-fromversion: 6.1.0
+fromversion: 8.13.0
 tests:
 - No tests (auto formatted)
-supportedModules:
-- C3
-- X0
-- X1
-- X3
-- X5
-- ENT_PLUS
-- exposure_management
-- cloud
-- cloud_runtime_security
-- agentix
-- cloud_posture
-- xsiam
-- edr
